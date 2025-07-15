@@ -1,1 +1,198 @@
-<!DOCTYPE html><html><head><title>Turtle Journey</title></head><body><!-- Game HTML goes here --></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Turtle Journey</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      background: url('background.png') repeat-x;
+      background-size: cover;
+      width: 100vw;
+      height: 100vh;
+    }
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-size: 24px;
+      font-family: sans-serif;
+      text-shadow: 1px 1px 2px black;
+      z-index: 2;
+    }
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      color: white;
+      font-family: sans-serif;
+      text-shadow: 2px 2px 4px black;
+      display: none;
+      z-index: 2;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Score: 0</div>
+  <div id="gameOver">Game Over<br>Tap or Press R to Restart</div>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const turtleImg = new Image();
+    turtleImg.src = 'turtle.png';
+    const plasticImg = new Image();
+    plasticImg.src = 'plastic.png';
+    const jellyfishImg = new Image();
+    jellyfishImg.src = 'jellyfish.png';
+    const bg = new Image();
+    bg.src = 'background.png';
+
+    // Sounds
+    const collectSound = new Audio('collect.mp3');
+    const crashSound = new Audio('crash.mp3');
+
+    let turtle = { x: 100, y: 200, width: 60, height: 40, dy: 0 };
+    let gravity = 0.4;
+    let flapStrength = -8;
+    let obstacles = [];
+    let collectibles = [];
+    let score = 0;
+    let gameOver = false;
+    let bgOffset = 0;
+
+    function resetGame() {
+      turtle.y = 200;
+      turtle.dy = 0;
+      obstacles = [];
+      collectibles = [];
+      score = 0;
+      gameOver = false;
+      document.getElementById('score').innerText = 'Score: 0';
+      document.getElementById('gameOver').style.display = 'none';
+      loop();
+    }
+
+    function spawnObstacle() {
+      obstacles.push({
+        x: canvas.width,
+        y: Math.random() * (canvas.height - 50),
+        width: 50,
+        height: 50
+      });
+    }
+
+    function spawnCollectible() {
+      collectibles.push({
+        x: canvas.width,
+        y: Math.random() * (canvas.height - 50),
+        width: 40,
+        height: 40
+      });
+    }
+
+    function isColliding(a, b) {
+      return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+      );
+    }
+
+    function drawBackground() {
+      bgOffset -= 2;
+      if (bgOffset <= -canvas.width) bgOffset = 0;
+      ctx.drawImage(bg, bgOffset, 0, canvas.width, canvas.height);
+      ctx.drawImage(bg, bgOffset + canvas.width, 0, canvas.width, canvas.height);
+    }
+
+    function loop() {
+      if (gameOver) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBackground();
+
+      // Physics
+      turtle.dy += gravity;
+      turtle.y += turtle.dy;
+
+      // Draw turtle
+      ctx.drawImage(turtleImg, turtle.x, turtle.y, turtle.width, turtle.height);
+
+      // Boundaries
+      if (turtle.y < 0) turtle.y = 0;
+      if (turtle.y + turtle.height > canvas.height) {
+        turtle.y = canvas.height - turtle.height;
+        endGame();
+      }
+
+      // Spawns
+      if (Math.random() < 0.02) spawnObstacle();
+      if (Math.random() < 0.01) spawnCollectible();
+
+      // Obstacles
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        let obs = obstacles[i];
+        obs.x -= 4;
+        ctx.drawImage(plasticImg, obs.x, obs.y, obs.width, obs.height);
+        if (isColliding(turtle, obs)) {
+          crashSound.play();
+          endGame();
+        }
+        if (obs.x + obs.width < 0) obstacles.splice(i, 1);
+      }
+
+      // Collectibles
+      for (let i = collectibles.length - 1; i >= 0; i--) {
+        let col = collectibles[i];
+        col.x -= 3;
+        ctx.drawImage(jellyfishImg, col.x, col.y, col.width, col.height);
+        if (isColliding(turtle, col)) {
+          collectSound.play();
+          score += 1;
+          document.getElementById('score').innerText = 'Score: ' + score;
+          collectibles.splice(i, 1);
+        }
+        if (col.x + col.width < 0) collectibles.splice(i, 1);
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    function endGame() {
+      gameOver = true;
+      document.getElementById('gameOver').style.display = 'block';
+    }
+
+    function flap() {
+      if (!gameOver) turtle.dy = flapStrength;
+    }
+
+    // Keyboard + Touch Controls
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') flap();
+      if (e.key.toLowerCase() === 'r' && gameOver) resetGame();
+    });
+
+    canvas.addEventListener('mousedown', flap);
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      flap();
+    }, { passive: false });
+
+    bg.onload = () => loop();
+  </script>
+</body>
+</html>
